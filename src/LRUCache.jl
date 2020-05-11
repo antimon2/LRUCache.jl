@@ -4,24 +4,28 @@ include("cyclicorderedset.jl")
 export LRU
 
 using Base.Threads
-using Base: Callable
+using Base: AbstractLock, Callable
 
 _constone(x) = 1
 
 # Default cache size
-mutable struct LRU{K,V} <: AbstractDict{K,V}
+mutable struct LRU{K,V,L<:AbstractLock} <: AbstractDict{K,V}
     dict::Dict{K, Tuple{V, LinkedNode{K}, Int}}
     keyset::CyclicOrderedSet{K}
     currentsize::Int
     maxsize::Int
-    lock::ReentrantLock
+    lock::L
     by::Callable
 
     LRU{K, V}(; maxsize::Int, by::Callable = _constone) where {K, V} =
-        new{K, V}(Dict{K, V}(), CyclicOrderedSet{K}(), 0, maxsize, ReentrantLock(), by)
+        new{K, V, SpinLock}(Dict{K, V}(), CyclicOrderedSet{K}(), 0, maxsize, SpinLock(), by)
+
+    LRU{K, V, L}(; maxsize::Int, by::Callable = _constone) where {K, V, L <: AbstractLock} =
+        new{K, V, L}(Dict{K, V}(), CyclicOrderedSet{K}(), 0, maxsize, L(), by)
 end
 
-LRU(; maxsize::Int, by::Callable = _constone) = LRU{Any,Any}(maxsize=maxsize, by=by)
+LRU(; maxsize::Int, by::Callable = _constone, locktype::Type{L} = SpinLock) where {L <: AbstractLock} = 
+    LRU{Any,Any,L}(maxsize=maxsize, by=by)
 
 Base.show(io::IO, lru::LRU{K, V}) where {K, V} =
     print(io, "LRU{$K, $V}(; maxsize = $(lru.maxsize))")
