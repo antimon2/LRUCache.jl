@@ -1,7 +1,7 @@
 module Benchmark
 using LRUCache
 
-# This benchmark is a simple recursive Fibonnaci calculation. While not
+# This benchmark is a simple recursive Fibonacci calculation. While not
 # comparable to most real world problems, the simplicity of the underlying
 # calculation means that most of the time is spent in the cacheing operations,
 # rather than on the function itself. Which is optimal for comparing
