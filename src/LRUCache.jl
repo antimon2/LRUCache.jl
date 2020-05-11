@@ -14,11 +14,11 @@ mutable struct LRU{K,V} <: AbstractDict{K,V}
     keyset::CyclicOrderedSet{K}
     currentsize::Int
     maxsize::Int
-    lock::SpinLock
+    lock::ReentrantLock
     by::Callable
 
     LRU{K, V}(; maxsize::Int, by::Callable = _constone) where {K, V} =
-        new{K, V}(Dict{K, V}(), CyclicOrderedSet{K}(), 0, maxsize, SpinLock(), by)
+        new{K, V}(Dict{K, V}(), CyclicOrderedSet{K}(), 0, maxsize, ReentrantLock(), by)
 end
 
 LRU(; maxsize::Int, by::Callable = _constone) = LRU{Any,Any}(maxsize=maxsize, by=by)
