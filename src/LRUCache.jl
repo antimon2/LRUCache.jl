@@ -1,7 +1,7 @@
 module LRUCache
 
 include("cyclicorderedset.jl")
-export LRU
+export LRU, RLRU
 
 using Base.Threads
 using Base: AbstractLock, Callable
@@ -29,6 +29,13 @@ LRU(; maxsize::Int, by::Callable = _constone, locktype::Type{L} = SpinLock) wher
 
 Base.show(io::IO, lru::LRU{K, V}) where {K, V} =
     print(io, "LRU{$K, $V}(; maxsize = $(lru.maxsize))")
+
+const RLRU{K,V} = LRU{K,V,ReentrantLock}
+# RLRU{K,V}(; maxsize::Int, by::Callable = _constone) where {K, V} = LRU{K,V,ReentrantLock}(maxsize=maxsize, by=by)
+RLRU(; maxsize::Int, by::Callable = _constone) = RLRU{Any,Any}(maxsize=maxsize, by=by)
+
+Base.show(io::IO, lru::RLRU{K, V}) where {K, V} =
+    print(io, "RLRU{$K, $V}(; maxsize = $(lru.maxsize))")
 
 function Base.iterate(lru::LRU, state...)
     next = iterate(lru.keyset, state...)
@@ -77,7 +84,7 @@ function Base.get(default::Callable, lru::LRU, key)
     end
     return default()
 end
-function Base.get(default::Callable, lru::LRU{K,V,ReentrantLock}, key) where {K,V}
+function Base.get(default::Callable, lru::RLRU, key)
     lock(lru.lock) do
         if _unsafe_haskey(lru, key)
             v = _unsafe_getindex(lru, key)
@@ -120,7 +127,7 @@ function Base.get!(default::Callable, lru::LRU, key)
     unlock(lru.lock)
     return v
 end
-function Base.get!(default::Callable, lru::LRU{K,V,ReentrantLock}, key) where {K,V}
+function Base.get!(default::Callable, lru::RLRU, key)
     lock(lru.lock) do
         if _unsafe_haskey(lru, key)
             v = _unsafe_getindex(lru, key)

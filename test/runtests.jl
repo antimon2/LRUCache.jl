@@ -27,7 +27,8 @@ using Base.Threads
         end
     end
     @testset "ReentrantLock" begin
-        for cache in [LRU(; maxsize = 100, locktype = ReentrantLock), LRU{Int, Int, ReentrantLock}(; maxsize = 100)]
+        for cache in [LRU(; maxsize = 100, locktype = ReentrantLock), LRU{Int, Int, ReentrantLock}(; maxsize = 100), RLRU{Int, Int}(; maxsize = 100)]
+            @test cache isa RLRU
             r = 1:100
             for i in reverse(r)
                 cache[i] = i
@@ -72,7 +73,7 @@ end
         @test Set(cache) == Set(i=>2*i for i=1:100)
     end
     @testset "ReentrantLock" begin
-        cache = LRU{Int, Int, ReentrantLock}(; maxsize = 100)
+        cache = RLRU{Int, Int}(; maxsize = 100)
 
         r = 1:100
         @threads for i in reverse(r)
@@ -151,7 +152,7 @@ end
         end
     end
     @testset "ReentrantLock" begin
-    cache = LRU{Int, Int, ReentrantLock}(; maxsize = 50*sizeof(Int), by = sizeof)
+    cache = RLRU{Int, Int}(; maxsize = 50*sizeof(Int), by = sizeof)
 
         for i in 100:-1:1
             @test 2*i == get(cache, i, 2*i)
@@ -241,7 +242,7 @@ end
         @test_throws KeyError getindex(cache, p10[1])
     end
     @testset "ReentrantLock" begin
-        cache = LRU{Int, Int, ReentrantLock}(; maxsize = 50*sizeof(Int), by = sizeof)
+        cache = RLRU{Int, Int}(; maxsize = 50*sizeof(Int), by = sizeof)
 
         @threads for i in 50:-1:1
             @test 2*i == get(cache, i, 2*i)
@@ -275,18 +276,43 @@ end
 end
 
 @testset "Recursive lock in get(!)" begin
-    cache = LRU{Int,Int}(; maxsize = 100)
-    p = randperm(100)
-    cache[1] = 1
+    @testset "SpinLock" begin
+        cache = LRU{Int,Int}(; maxsize = 100)
+        p = randperm(100)
+        cache[1] = 1
 
-    f!(cache, i) = get!(()->(f!(cache, i-1) + 1), cache, i)
-    @threads for i = 1:100
-        f!(cache, p[i])
+        f!(cache, i) = get!(()->(f!(cache, i-1) + 1), cache, i)
+        @threads for i = 1:100
+            f!(cache, p[i])
+        end
+
+        haskeys = BitArray(undef, 100)
+        equalities = BitArray(undef, 100)
+        @threads for i = 1:100
+            haskeys[i] = haskey(cache, i)
+            equalities[i] = cache[i] == i
+        end
+        @test all(haskeys)
+        @test all(equalities)
     end
+    @testset "ReentrantLock" begin
+        cache = RLRU{Int,Int}(; maxsize = 100)
+        p = randperm(100)
+        cache[1] = 1
 
-    @threads for i = 1:100
-        @test haskey(cache, i)
-        @test cache[i] == i
+        f!(cache, i) = get!(()->(f!(cache, i-1) + 1), cache, i)
+        @threads for i = 1:100
+            f!(cache, p[i])
+        end
+
+        haskeys = BitArray(undef, 100)
+        equalities = BitArray(undef, 100)
+        @threads for i = 1:100
+            haskeys[i] = haskey(cache, i)
+            equalities[i] = cache[i] == i
+        end
+        @test all(haskeys)
+        @test all(equalities)
     end
 end
 
