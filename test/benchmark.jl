@@ -7,7 +7,7 @@ using LRUCache
 # rather than on the function itself. Which is optimal for comparing
 # improvements to the cache speed.
 
-const FIBCACHE = LRU{Int, Int, ReentrantLock}(; maxsize = 10)
+const FIBCACHE = LRU{Int, Int}(; maxsize = 10)
 
 function fib(a::Int)
     get!(FIBCACHE, a) do

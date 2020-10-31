@@ -58,7 +58,7 @@ end
             cache[i] = i
         end
 
-        @threads for i = 1:10:100
+        for i = 1:10:100
             @test haskey(cache, i)
             @test !haskey(cache, 100+i)
         end
@@ -271,6 +271,22 @@ end
         @test p10[10] == pop!(cache, p10[10])
         @test !haskey(cache, p10[10])
         @test_throws KeyError getindex(cache, p10[1])
+    end
+end
+
+@testset "Recursive lock in get(!)" begin
+    cache = LRU{Int,Int}(; maxsize = 100)
+    p = randperm(100)
+    cache[1] = 1
+
+    f!(cache, i) = get!(()->(f!(cache, i-1) + 1), cache, i)
+    @threads for i = 1:100
+        f!(cache, p[i])
+    end
+
+    @threads for i = 1:100
+        @test haskey(cache, i)
+        @test cache[i] == i
     end
 end
 
